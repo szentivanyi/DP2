@@ -4,7 +4,7 @@ import csv
 import string
 import nltk
 from time import sleep as wait
-import threading  # will potentially use multi-threading
+# import threading  # will potentially use multi-threading
 from nltk.stem.porter import *
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet
