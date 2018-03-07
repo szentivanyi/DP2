@@ -18,7 +18,7 @@ TRAINING_DATA = "train_data_fv1.csv"
 TEST_DATA = "test_data_fv1.csv"
 number_epoch = 30
 mysteps = None
-classes = 50
+classes = 30
 networks2 = [[5,5],[3,3]]
 
 drops = [0.1, 0.2, 0.3, 0.5, 0.6, 0.8, 0,9]

@@ -3,6 +3,7 @@ import shutil
 import csv
 import string
 import nltk
+from timeit import default_timer as timer
 from time import sleep as wait
 # import threading  # will potentially use multi-threading
 from nltk.stem.porter import *
@@ -12,7 +13,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 import scipy
 import numpy
 
-stopWords = set(stopwords.words('english'))
+#stopWords = set(stopwords.words('english'))
 
 
 ###############################################################################
@@ -21,6 +22,7 @@ stopWords = set(stopwords.words('english'))
 
 
 def generate_document(text, author):
+
     """ function: generate_document
         ---------------------------
         extract class labels & tokenized (and sanitized) title/body text
@@ -105,6 +107,7 @@ def populate_class_label(document, article):
         :param article:  formatted parse tree built from unformatted data
         @article is a 'reuter' child of the original file parsetree
     """
+
     for topic in article.topics.children:
         document['topics'].append(topic.text.encode('ascii', 'ignore'))
 
@@ -119,9 +122,6 @@ def populate_author(document, author):
         @article is a 'reuter' child of the original file parsetree
     """
     if author:
-        # txt = author.text #.encode('ascii', 'ignore') lebo nechcem byte-like object
-        # txt = txt.split(',')[0]
-        # txt = txt.strip()
         document['author'] = author
 
 
@@ -134,9 +134,6 @@ def populate_wordlist(document, text):
         :param article:  formatted parse tree built from unformatted data
             @article is a 'reuter' child of the original file parsetree
     """
-    # text = article.find('text')
-    # body = text.body
-
     if text:
         document['body'] = text
 
@@ -185,11 +182,16 @@ def tokenize(text):
 ###############################################################################
 
 def create_db_authors(docs):
-    db_authors = []
     # najdeme autorov
-    for doc in docs:
-        if doc['author']:
-            db_authors.append(doc['author'])
+    db_authors = [doc['author'] for doc in docs]
+
+    # for doc in docs:
+    #     if doc['author']:
+    #         db_authors.append(doc['author'])
+
+    db_authors = list(set(db_authors))
+    # print('db_authors')
+    # print(len(db_authors))
 
     return db_authors
 
@@ -202,22 +204,26 @@ def process_doc(text):
     text = text.lower()
 
     # Replace delimeter signs with whitespaces and split text to a list by whitespaces
-    wordlist = text.replace(', ', ' ').replace(',\n', ' ').replace(' "', ' ').replace('" ', ' ').replace('"', ' ')\
+    wordlist = text.replace(',', ' ').replace(',\n', ' ').replace(' "', ' ').replace('" ', ' ').replace('"', ' ').replace(',"', ' ')\
                        .replace('. ', ' ').replace('.\n', ' ').replace('(', ' ').replace(')', ' ')\
-                       .replace('>', ' ').replace('<', ' ').split()
+                       .replace('>', ' ').replace('<', ' ').replace(':', ' ').split()
     # DEBUG
     # print(wordlist) # list of splitted words
 
-    # TODO '300,000'
-
     # Replace numbers and math signs with FLAGS
     for word in wordlist:
-        if word.isdigit():
-            wordlist[wordlist.index(word)] = "__cislo_int__"  # word is int number
+        # if word.isdigit():
+        #     wordlist[wordlist.index(word)] = "__cislo_int__"  # word is int number
+        if is_num(word):
+            wordlist[wordlist.index(word)] = "_num_"  # word is 140,000 number
         elif is_digit(word):
-            wordlist[wordlist.index(word)] = "__cislo_float__"  # word is float number
-        elif is_math_sign(word):
-            wordlist[wordlist.index(word)] = "__mops__"   # word is mathematical operational sign
+            wordlist[wordlist.index(word)] = "_float_"  # word is float number
+        # elif is_math_sign(word):
+        #     wordlist[wordlist.index(word)] = "__mops__"   # word is mathematical operational sign
+        elif is_webpage(word):
+            wordlist[wordlist.index(word)] = "_web_"   # word is mathematical operational sign
+        elif is_price(word):
+            wordlist[wordlist.index(word)] = "_price_"   # word is mathematical operational sign
         else:
             # just word
             pass
@@ -225,10 +231,15 @@ def process_doc(text):
     return wordlist
 
 
+def is_num(x):
+    rex = re.compile("^[0-9,]*$")
+    return rex.fullmatch(x)
+
+
 def is_digit(x):
     try:
-        float(x)
-        return True
+       float(x)
+       return True
     except ValueError:
         return False
 
@@ -240,31 +251,50 @@ def is_math_sign(x):
             return False
 
 
-def remove_stopwords(wordlist):
-            # stopWords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves',
-            #              'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their',
-            #              'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are', 'was',
-            #              'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the',
-            #              'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against',
-            #              'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in',
-            #              'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
-            #              'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only',
-            #              'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 'd', 'll',
-            #              'm', 'o', 're', 've', 'y', 'ain', 'aren', 'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven', 'isn', 'ma',
-            #              'mightn', 'mustn', 'needn', 'shan', 'shouldn', 'wasn', 'weren', 'won', 'wouldn']
-            #
-    wordlist = [word for word in wordlist if word not in stopWords]
+def is_webpage(word):
+        if 'http:' in word or '.com' in word:
+            return True
+        else:
+            return False
 
-    return wordlist
+
+def is_price(word):
+        if '$' in word:
+            return True
+        else:
+            return False
+
+
+def remove_stopwords(wordlist):
+        stopWords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves',
+                         'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their',
+                         'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are', 'was',
+                         'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the',
+                         'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against',
+                         'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in',
+                         'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
+                         'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only',
+                         'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 'd', 'll',
+                         'm', 'o', 're', 've', 'y', 'ain', 'aren', 'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven', 'isn', 'ma',
+                         'mightn', 'mustn', 'needn', 'shan', 'shouldn', 'wasn', 'weren', 'won', 'wouldn']
+
+        wordlist = [word for word in wordlist if word not in stopWords]
+
+        return wordlist
 
 #####################################################################################################
 
 
-def create_dictionary(docs, keep_percent=80):
+def create_dictionary(traindocs, testdocs, keep_percent=70):
+    docs = []
+    docs.extend(traindocs)
+    docs.extend(testdocs)
+
     # Create wordlist from docs
     wordlist = []
     for d in range(len(docs)):
         wordlist.extend(process_doc(docs[d]['body']))
+    print("Slovnik 1/4 DONE!")
 
     # Remove stop words
     # wordlist_no_sw = remove_stop_words(wordlist)
@@ -273,21 +303,27 @@ def create_dictionary(docs, keep_percent=80):
     wordfreq = [wordlist.count(w) for w in wordlist]
     dictionary = dict(zip(wordlist, wordfreq))
     # print(dictionary)
+    print("Slovnik 2/4 DONE!")
 
     # Sort freq-dictionary
     dictionary = [(dictionary[key], key) for key in dictionary]
     dictionary.sort()
     dictionary.reverse()  # from the highest to the lowest
     # print(dictionary)
+    print("Slovnik 3/4 DONE!")
 
     # lenght of the dictionary when we keep ?keep_percent? percent
     percent = (round(len(dictionary) / 100) * keep_percent)
     dictionary = dictionary[0:percent]
     # print(dictionary)
+    print("Slovnik 4/4 DONE!")
 
-    print("Slovnik was created!")
+    with open('dictionary_5000.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(dictionary)
+    print("dictionary_5000.csv file was created.")
 
-    return dictionary
+    # return dictionary
 
 ##############################################################################################
 
@@ -313,21 +349,15 @@ def word_countering(wordlist, dictionary):
 #######################################################################################
 
 
-def feature_extraction_1(docs, authors):
-    list_len_sentences = []
+def feature_extraction_1(docs, authors, dictionary):
     fvs = []
-    dictionary = create_dictionary(docs, keep_percent=70)
-
     for doc in docs:
         fv = []
         text = doc['body']
 
         # Mean lenght of sentences
         sentences = text.split('.')
-        for sentence in sentences:
-            words = sentence.split(' ')
-            list_len_sentences.append(len(words))
-
+        list_len_sentences = [len(sentence.split(' ')) for sentence in sentences]
         mean_sentence_len = scipy.mean(list_len_sentences)
         mean_sentence_len = round(mean_sentence_len, ndigits=4)
         # print("Priemerna dlzka viet: ")
@@ -354,6 +384,7 @@ def feature_extraction_1(docs, authors):
 
         # Word count
         wordcounts = word_countering(wordlist, dictionary)
+        # TODO trva 0.07 sekund
         # print("Wordcounts: ")
         # print(wordcounts)
 
@@ -367,13 +398,11 @@ def feature_extraction_1(docs, authors):
         #  LV dokumentu
         lv = authors.index(doc['author'])
         fv.append(lv)
-        print(f"ID authora: {lv} - {doc['author']} ")
 
         # FV + LV vsetkych dokumentov v liste
         fvs.append(fv)
 
     print("Feature extraction method 1: DONE !")
-
 
     return fvs   # all vectors (Feature Vectors + Labels) as list
 
@@ -384,14 +413,6 @@ def feature_extraction_1(docs, authors):
 
 def create_cvs(dataset, authors, filename='train_data_fv.csv'):
     categories = authors
-    # try:
-    #     rows, features = numpy.shape(dataset)
-    # except ValueError:
-    #     features = len(dataset)
-    #     rows = 1
-    # print()
-    # print(rows)
-    # print(features)
 
     try:
         shutil.rmtree(f'/{filename}', ignore_errors=False)
@@ -408,7 +429,7 @@ def create_cvs(dataset, authors, filename='train_data_fv.csv'):
         # DATA
         writer.writerows(dataset)     # v riadkoch su Feature data + posledny stlpec v riadku je label
 
-    print(f"{filename} file was created.")
+    print(f"{filename} file was created.\n")
 
 
 ###############################################################################
@@ -424,28 +445,48 @@ def main():
     train = parse_documents('train')
     test = parse_documents('test')
 
-    print('Generating list of authors. This may take some time...')
+    print('\nGenerating list of authors. This may take some time...')
     train_authors = create_db_authors(train)
     test_authors = create_db_authors(test)
+    assert len(train_authors) == len(test_authors), "PROBLEM: pocet test a train autorov sa musi rovnat."
 
 
-    # generate dataset 1 w lengths
-    print('Generating train dataset. This may take some time...')
-    trainset = feature_extraction_1(train, train_authors)
+    ### !!! ak uz mas vygenerovany slovnik v csv subore mozes zakomentovat, pretoze to trva extremne dlho !!!
+    # trva 885.00 sekund / 14 minut pri 500 docs, inak hodiny
+    print("Time to create_dictionary 70%: ")
+    start = timer()
+    create_dictionary(train[:50], test[:50], keep_percent=70)
+    end = timer()
+    print(str((end-start)/60) + ' minutes')
+    print()
+    ###
 
-    print('Generating test dataset. This may take some time...')
-    testset = feature_extraction_1(test, test_authors)
+    dict = []
+    with open('dictionary_5000.csv', mode='r') as infile:
+        reader = csv.reader(infile)
+        data = [tuple(line) for line in reader]
+        dict.extend(data)
 
-    print("dataset")
-    print(len(trainset))
-    print(len(trainset[0]))
+
+    ####################################
+    ### generate dataset 1 w lengths ###
+    ####################################
+
+    ### TRAIN ###
+    print('\nGenerating train dataset. This may take some time...')
+    trainset = feature_extraction_1(train, train_authors, dict)
 
     print('Generating train CSV. This may take some time...')
     create_cvs(trainset, train_authors, filename='train_data_fv1.csv')
 
+    ### TEST ###
+    print('\nGenerating test dataset. This may take some time...')
+    testset = feature_extraction_1(test, test_authors, dict)
+
     print('Generating test CSV. This may take some time...')
     create_cvs(testset, test_authors, filename='test_data_fv1.csv')
 
+    assert len(testset[0]) == len(trainset[0]), "PROBLEM: dlzka FV test a FV train sa nerovna."
 
 
 if __name__ == "__main__":
