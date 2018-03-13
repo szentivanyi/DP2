@@ -11,6 +11,7 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet
 from nltk.stem.wordnet import WordNetLemmatizer
 import scipy
+from scipy.stats import moment
 import numpy
 
 #stopWords = set(stopwords.words('english'))
@@ -202,11 +203,16 @@ def process_doc(text):
     # Raw document body text
     # convert text to lower case
     text = text.lower()
-
+    # wordlist = []
     # Replace delimeter signs with whitespaces and split text to a list by whitespaces
     wordlist = text.replace(',', ' ').replace(',\n', ' ').replace(' "', ' ').replace('" ', ' ').replace('"', ' ').replace(',"', ' ')\
                        .replace('. ', ' ').replace('.\n', ' ').replace('(', ' ').replace(')', ' ')\
                        .replace('>', ' ').replace('<', ' ').replace(':', ' ').split()
+
+    # for sentence in nltk.tokenize.sent_tokenize(text):
+    #     for word in nltk.tokenize.word_tokenize(sentence):
+    #         wordlist.append(word)
+
     # DEBUG
     # print(wordlist) # list of splitted words
 
@@ -284,8 +290,7 @@ def remove_stopwords(wordlist):
 
 #####################################################################################################
 
-
-def create_dictionary(traindocs, testdocs, keep_percent=70):
+def create_dictionary(traindocs, testdocs, keep_percent):
     docs = []
     docs.extend(traindocs)
     docs.extend(testdocs)
@@ -294,58 +299,45 @@ def create_dictionary(traindocs, testdocs, keep_percent=70):
     wordlist = []
     for d in range(len(docs)):
         wordlist.extend(process_doc(docs[d]['body']))
-    print("Slovnik 1/4 DONE!")
+    print("Slovnik 1/2 DONE!")
 
     # Remove stop words
     # wordlist_no_sw = remove_stop_words(wordlist)
 
-    # Create freq-dictionary
-    wordfreq = [wordlist.count(w) for w in wordlist]
-    dictionary = dict(zip(wordlist, wordfreq))
-    # print(dictionary)
-    print("Slovnik 2/4 DONE!")
+    # for d in range(len(docs)):
+    #     for sentence in nltk.tokenize.sent_tokenize(docs[d]['body']):
+    #         for word in nltk.tokenize.word_tokenize(sentence):
+    #             fdist[word] += 1
 
-    # Sort freq-dictionary
-    dictionary = [(dictionary[key], key) for key in dictionary]
-    dictionary.sort()
-    dictionary.reverse()  # from the highest to the lowest
-    # print(dictionary)
-    print("Slovnik 3/4 DONE!")
+    # Create word frequencies
+    wordcounts = nltk.FreqDist(w for w in wordlist)
+    most_frequent = wordcounts.most_common(round((len(wordcounts)/100) * keep_percent))
+    # print(len(most_frequent))
+    # print(most_frequent)
+    print("Slovnik 2/2 DONE!")
 
-    # lenght of the dictionary when we keep ?keep_percent? percent
-    percent = (round(len(dictionary) / 100) * keep_percent)
-    dictionary = dictionary[0:percent]
-    # print(dictionary)
-    print("Slovnik 4/4 DONE!")
+    return most_frequent
 
-    with open('dictionary_5000.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerows(dictionary)
-    print("dictionary_5000.csv file was created.")
-
-    # return dictionary
 
 ##############################################################################################
 
+def word_frequencies(wordlist, dictionary):
+    wordcounts = []
+    for item in dictionary:  # v tvare list setov [('the', 30393), ('to', 14265), ...]
+        if item[0] in wordlist:  # slovo
+            # pocet vyskytov daneho slova vo wordliste (dokumente)
+            count = wordlist.count(item[0])
+            # vyskyt daneho slova vo wordliste v percentach = frekvencia
+            wordcounts.append((count / len(wordlist)) * 100)
+        else:
+            # __OOV__, slovo zo slovnika v texte nie je
+            wordcounts.append(0.)
 
-def word_countering(wordlist, dictionary):
-        wordcounts = []
-
-        for word in dictionary:  # v tvare list slovnikov [{12x : car}, {5x : bank}...]
-            if word[-1] in wordlist:  # slovoX
-                # pocet vyskytov daneho slova vo wordliste (v 1 text)
-                count = wordlist.count(word[-1])
-                # vyskyt daneho slova vo wordliste v percentach
-                wordcounts.append((count / len(wordlist)) * 100)
-            else:
-                # __OOV__, slovo zo slovnika v texte nie je
-                wordcounts.append(0.)
-
-        return wordcounts
+    return wordcounts
 
 
 #######################################################################################
-##########  feature extraction method 1  #########################
+##########  feature extraction method 1 - ALL IN ONE #########################
 #######################################################################################
 
 
@@ -355,11 +347,106 @@ def feature_extraction_1(docs, authors, dictionary):
         fv = []
         text = doc['body']
 
+        wordlist = process_doc(text)
+
+        # Mean lenght of sentences
+        # sentences = text.split('.')
+        # list_len_sentences = [len(sentence.split(' ')) for sentence in sentences]
+        # mean_sentence_len = scipy.mean(list_len_sentences)
+        # mean_sentence_len = round(mean_sentence_len, ndigits=4)
+        # print("Priemerna dlzka viet: ")
+        # print(mean_sentence_len)
+
+        # Number of stopwords in document
+        # wordlist_wo_sw = remove_stopwords(wordlist)
+        # stopwords_count = len(wordlist) - len(wordlist_wo_sw)
+        # print("Pocet stop slov: ")
+        # print(stopwords_count)
+
+        # Number of all words in document
+        # wordlist_len = len(wordlist)
+        # print("Pocet all slov: ")
+        # print(wordlist_len)
+        # print(wordlist)
+
+        # Standard deviation of sentence length
+        # std = numpy.std(list_len_sentences)
+        # print("Standard deviation: ")
+        # print(std)
+
+        # Word frequencies
+        word_freqs = word_frequencies(wordlist, dictionary)
+        # print("Word frequencies: ")
+        # print(word_freqs)
+
+        # Number of different words
+        # vocab_richness = nltk.FreqDist(w for w in wordlist).B()
+        # print(" Vocabulary richness: ")
+        # print(vocab_richness)
+
+        # Number of different words
+        # num_hapaxes = len(nltk.FreqDist(w for w in wordlist).hapaxes())
+        #print(" Pocet slov, ktore pouzil autor len raz: ")
+        #print(num_hapaxes)
+
+        # MOMENTS
+        # m1 = moment(a=list_len_sentences, moment=1)  # always 0
+        # m2 = moment(a=list_len_sentences, moment=2)  # variance je 2 mocnina std
+        # m3 = moment(a=list_len_sentences, moment=3)  # skewness - sikmost
+        # m4 = moment(a=list_len_sentences, moment=4)  # kurtosis - spicatost
+        # m5 = moment(a=list_len_sentences, moment=5)  # -
+        # m6 = moment(a=list_len_sentences, moment=6)  # -
+        # m7 = moment(a=list_len_sentences, moment=7)  # -
+        # m8 = moment(a=list_len_sentences, moment=8)  # -
+        # m9 = moment(a=list_len_sentences, moment=9)  # -
+        # m10 = moment(a=list_len_sentences, moment=10)  # -
+
+        # FV dokumentu
+        # fv.append(mean_sentence_len)
+        # fv.append(stopwords_count)
+        # fv.append(wordlist_len)
+        # fv.append(std)
+        # fv.append(vocab_richness)
+        # fv.append(num_hapaxes)
+        # fv.append(m1)
+        # fv.append(m2)
+        # fv.append(m3)
+        # fv.append(m4)
+        # fv.append(m5)
+        # fv.append(m6)
+        # fv.append(m7)
+        # fv.append(m8)
+        # fv.append(m10)
+
+        fv.extend(word_freqs)
+
+        #  LV dokumentu
+        lv = authors.index(doc['author'])
+        fv.append(lv)
+
+        # FV + LV vsetkych dokumentov v liste
+        fvs.append(fv)
+
+    print("Feature extraction method 1: DONE !")
+
+    return fvs   # all vectors (Feature Vectors + Labels) as list
+
+#######################################################################################
+##########  feature extraction method 2  #########################
+#######################################################################################
+
+
+def feature_extraction_2(docs, authors):
+    fvs = []
+    for doc in docs:
+        fv = []
+        text = doc['body']
+
         # Mean lenght of sentences
         sentences = text.split('.')
         list_len_sentences = [len(sentence.split(' ')) for sentence in sentences]
         mean_sentence_len = scipy.mean(list_len_sentences)
-        mean_sentence_len = round(mean_sentence_len, ndigits=4)
+        mean_sentence_len = round(mean_sentence_len, ndigits=6)
         # print("Priemerna dlzka viet: ")
         # print(mean_sentence_len)
 
@@ -382,18 +469,11 @@ def feature_extraction_1(docs, authors, dictionary):
         # print("Standard deviation: ")
         # print(std)
 
-        # Word count
-        wordcounts = word_countering(wordlist, dictionary)
-        # TODO trva 0.07 sekund
-        # print("Wordcounts: ")
-        # print(wordcounts)
-
         # FV dokumentu
         fv.append(mean_sentence_len)
         fv.append(stopwords_count)
         fv.append(wordlist_len)
         fv.append(std)
-        fv.extend(wordcounts)
 
         #  LV dokumentu
         lv = authors.index(doc['author'])
@@ -402,9 +482,166 @@ def feature_extraction_1(docs, authors, dictionary):
         # FV + LV vsetkych dokumentov v liste
         fvs.append(fv)
 
-    print("Feature extraction method 1: DONE !")
+    print("Feature extraction method 2: DONE !")
 
     return fvs   # all vectors (Feature Vectors + Labels) as list
+
+###################################################################################
+##########  feature extraction method 3  #########################
+###################################################################################
+
+def feature_extraction_3(docs, authors):
+    fvs = []
+    for doc in docs:
+        fv = []
+        text = doc['body']
+
+        # Mean lenght of sentences
+        sentences = text.split('.')
+        list_len_sentences = [len(sentence.split(' ')) for sentence in sentences]
+
+        # mean_sentence_len = scipy.mean(list_len_sentences)
+        # mean_sentence_len = round(mean_sentence_len, ndigits=4)
+        # print("\nPriemerna dlzka viet: ")
+        # print(mean_sentence_len)
+
+        # m0 = moment(a=list_len_sentences, moment=0)  # always 1
+        m1 = moment(a=list_len_sentences, moment=1)  # always 0
+        m2 = moment(a=list_len_sentences, moment=2)  # variance je 2 mocnina std
+        m3 = moment(a=list_len_sentences, moment=3)  # skewness - sikmost
+        m4 = moment(a=list_len_sentences, moment=4)  # kurtosis - spicatost
+        m5 = moment(a=list_len_sentences, moment=5)  #  -
+        m6 = moment(a=list_len_sentences, moment=6)  #  -
+        m7 = moment(a=list_len_sentences, moment=7)  #  -
+        m8 = moment(a=list_len_sentences, moment=8)  #  -
+        m9 = moment(a=list_len_sentences, moment=9)  #  -
+        m10 = moment(a=list_len_sentences, moment=10)  #  -
+
+        # print("MOMENT: ")
+        # print(m0)
+        # print(m1)
+        # print(m2)
+        # print(m3)
+        # print(m4)
+        # print('varciancia ala 2 moment')
+        # var = numpy.var(list_len_sentences)
+        # print(var)
+
+        # Number of stopwords in document
+        # wordlist = process_doc(text)
+        # wordlist_wo_sw = remove_stopwords(wordlist)
+        # stopwords_count = len(wordlist) - len(wordlist_wo_sw)
+        # print("Pocet stop slov: ")
+        # print(stopwords_count)
+
+        # Number of all words in document
+        # wordlist = process_doc(text)
+        # wordlist_len = len(wordlist)
+        # print("Pocet all slov: ")
+        # print(wordlist_len)
+        # print(wordlist)
+
+        # Standard deviation
+        # std = numpy.std(list_len_sentences)
+        # print("Standard deviation: ")
+        # print(std)
+
+        # FV dokumentu
+        fv.append(m1)
+        fv.append(m2)
+        fv.append(m3)
+        fv.append(m4)
+        fv.append(m5)
+        fv.append(m6)
+        fv.append(m7)
+        fv.append(m8)
+        fv.append(m10)
+        # fv.append(stopwords_count)
+        # fv.append(wordlist_len)
+        # fv.append(std)
+
+        #  LV dokumentu
+        lv = authors.index(doc['author'])
+        fv.append(lv)
+
+        # FV + LV vsetkych dokumentov v liste
+        fvs.append(fv)
+
+    print("Feature extraction method 3: DONE !")
+
+    return fvs   # all vectors (Feature Vectors + Labels) as list
+
+
+#######################################################################################
+##########  feature extraction method 4  #########################
+#######################################################################################
+
+def feature_extraction_4(docs, authors):
+    fvs = []
+    for doc in docs:
+        fv = []
+        text = doc['body']
+
+        # Mean lenght of sentences
+        sentences = text.split('.')
+        list_len_sentences = [len(sentence.split(' ')) for sentence in sentences]
+
+        # mean_sentence_len = scipy.mean(list_len_sentences)
+        # mean_sentence_len = round(mean_sentence_len, ndigits=4)
+        # print("\nPriemerna dlzka viet: ")
+        # print(mean_sentence_len)
+
+        # m0 = moment(a=list_len_sentences, moment=0)  # always 1
+        m1 = moment(a=list_len_sentences, moment=1)  # always 0
+        m2 = moment(a=list_len_sentences, moment=2)  # variance je 2 mocnina std
+        m3 = moment(a=list_len_sentences, moment=3)  # skewness - sikmost
+        m4 = moment(a=list_len_sentences, moment=4)  # kurtosis - spicatost
+        m5 = moment(a=list_len_sentences, moment=5)  #  -
+        m6 = moment(a=list_len_sentences, moment=6)  #  -
+        m7 = moment(a=list_len_sentences, moment=7)  #  -
+
+        # Number of stopwords in document
+        # wordlist = process_doc(text)
+        # wordlist_wo_sw = remove_stopwords(wordlist)
+        # stopwords_count = len(wordlist) - len(wordlist_wo_sw)
+        # print("Pocet stop slov: ")
+        # print(stopwords_count)
+
+        # Number of all words in document
+        # wordlist = process_doc(text)
+        # wordlist_len = len(wordlist)
+        # print("Pocet all slov: ")
+        # print(wordlist_len)
+        # print(wordlist)
+
+        # Standard deviation
+        # std = numpy.std(list_len_sentences)
+        # print("Standard deviation: ")
+        # print(std)
+
+        # FV dokumentu
+        fv.append(m1)
+        fv.append(m2)
+        fv.append(m3)
+        fv.append(m4)
+        fv.append(m5)
+        fv.append(m6)
+        fv.append(m7)
+        # fv.append(stopwords_count)
+        # fv.append(wordlist_len)
+        # fv.append(std)
+
+        #  LV dokumentu
+        lv = authors.index(doc['author'])
+        fv.append(lv)
+
+        # FV + LV vsetkych dokumentov v liste
+        fvs.append(fv)
+
+    print("Feature extraction method 4: DONE !")
+
+    return fvs   # all vectors (Feature Vectors + Labels) as list
+
 
 
 #######################################################################################
@@ -441,52 +678,50 @@ def main():
     # and the test corpus includes other 2,500 texts (50 per author)
     # non-overlapping with the training texts.
 
-    print('Generating document objects. This may take some time...')
+    print('\n Generating document objects...')
     train = parse_documents('train')
     test = parse_documents('test')
 
-    print('\nGenerating list of authors. This may take some time...')
+    print('\n Generating list of authors...')
     train_authors = create_db_authors(train)
     test_authors = create_db_authors(test)
+
     assert len(train_authors) == len(test_authors), "PROBLEM: pocet test a train autorov sa musi rovnat."
 
-
-    ### !!! ak uz mas vygenerovany slovnik v csv subore mozes zakomentovat, pretoze to trva extremne dlho !!!
-    # trva 885.00 sekund / 14 minut pri 500 docs, inak hodiny
-    print("Time to create_dictionary 70%: ")
-    start = timer()
-    create_dictionary(train[:50], test[:50], keep_percent=70)
-    end = timer()
-    print(str((end-start)/60) + ' minutes')
-    print()
-    ###
-
-    dict = []
-    with open('dictionary_5000.csv', mode='r') as infile:
-        reader = csv.reader(infile)
-        data = [tuple(line) for line in reader]
-        dict.extend(data)
-
+    print("\n Generating dictionary...")
+    dict = create_dictionary(train[:500], test[:500], keep_percent=80)
 
     ####################################
-    ### generate dataset 1 w lengths ###
+    ###       GENERATE DATASET       ###
     ####################################
 
-    ### TRAIN ###
+    filename_train = 'train_data_fv15.csv'  # MUST BE CHANGED !
+    filename_test = 'test_data_fv15.csv'  # MUST BE CHANGED !
+
+    ### TRAIN FV ###
     print('\nGenerating train dataset. This may take some time...')
-    trainset = feature_extraction_1(train, train_authors, dict)
+    trainset = feature_extraction_1(train[:500], train_authors, dict)    # priemerna dlzka viet + pocet stopslov + pocet vsetkych slov + standard deviation + frekvencie slov + 10 MOMENTS + hapaxes + richness +
+    # trainset = feature_extraction_2(train, train_authors)        # priemerna dlzka viet + pocet stopslov + pocet vsetkych slov + standard deviation
+    # trainset = feature_extraction_3(train, train_authors)        # prvych 10 MOMENTOV
+    # trainset = feature_extraction_4(train, train_authors)
+
+
+    ### TEST FV ###
+    print('\nGenerating test dataset. This may take some time...')
+    testset = feature_extraction_1(test[:500], test_authors, dict)
+    # testset = feature_extraction_2(test, test_authors)
+    # testset = feature_extraction_3(test, test_authors)
+    # testset = feature_extraction_4(test, test_authors)
+
+
+    assert len(testset[0]) == len(trainset[0]), "PROBLÉM: dĺžka testovacieho a trénovacieho FV sa nerovná."
+
 
     print('Generating train CSV. This may take some time...')
-    create_cvs(trainset, train_authors, filename='train_data_fv1.csv')
-
-    ### TEST ###
-    print('\nGenerating test dataset. This may take some time...')
-    testset = feature_extraction_1(test, test_authors, dict)
+    create_cvs(trainset, train_authors, filename=filename_train)
 
     print('Generating test CSV. This may take some time...')
-    create_cvs(testset, test_authors, filename='test_data_fv1.csv')
-
-    assert len(testset[0]) == len(trainset[0]), "PROBLEM: dlzka FV test a FV train sa nerovna."
+    create_cvs(testset, test_authors, filename=filename_test)
 
 
 if __name__ == "__main__":
