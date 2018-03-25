@@ -1,20 +1,25 @@
 import os
-import shutil
+# import shutil
 import csv
 import string
 import nltk
-from timeit import default_timer as timer
-from time import sleep as wait
+# from time import sleep as wait
 # import threading  # will potentially use multi-threading
 from nltk.stem.porter import *
 from nltk.corpus import stopwords
-from nltk.corpus import wordnet
-from nltk.stem.wordnet import WordNetLemmatizer
+# from nltk.corpus import wordnet
+# from nltk.stem.wordnet import WordNetLemmatizer
 import scipy
 from scipy.stats import moment
 import numpy
-nltk.download('averaged_perceptron_tagger')
+from textblob import TextBlob
+import numpy as np
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
+from pandas import read_csv, plotting as pl
 
+# nltk.download('averaged_perceptron_tagger')
 #stopWords = set(stopwords.words('english'))
 
 
@@ -288,17 +293,15 @@ def remove_stopwords(wordlist):
 
 #####################################################################################################
 
-def create_dictionary(traindocs, testdocs, keep_percent):
+def create_dictionary(traindocs, keep_percent):
     # create dict from all words in all docs and return 80% of most frequent
     docs = []
     docs.extend(traindocs)
-    docs.extend(testdocs)
 
     # Create wordlist from docs
     wordlist = []
     for d in range(len(docs)):
         wordlist.extend(tokenize_doc(docs[d]['body']))
-    print("Slovnik wordlist 1/2 DONE!")
 
     # Remove stop words
     wordlist = remove_stopwords(wordlist)
@@ -383,50 +386,56 @@ def coll_dict(docs, num, window_size):
     return coll
 
 
-def often_bigrams_count(text, colloc_dict):
-    fv = []
-    for c in colloc_dict:  # list of tuples
-        if str(c[0] + ' ' + c[1]) in text:  # z tuple na string, hladame ci je kolokacia v texte
-            bigrams = list(nltk.bigrams(tokenize(text)))  # rozoberiem text na BIGRAMY
-            # print(bigrams)
-            count = bigrams.count(c)  # zratam kolko krat sa nachadza kolokacia v texte
-            fv.append(count)
-        else:
-            fv.append(0)
-    # print("FV: ")
-    # print(fv)
-
-
-    return fv
 
 #######################################################################################
 ##########  feature extraction method 1 - ALL IN ONE #########################
 #######################################################################################
-def feature_extraction_1(docs, authors, dict):
+def feature_extraction_1(docs, authors):
     fvs = []
     for doc in docs:
         fv = []
         text = doc['body']
         wordlist = tokenize_doc(text)
         sentences = nltk.tokenize.sent_tokenize(text)
-
-        # lenght of sentences in text
         list_len_sentences = [len(nltk.tokenize.word_tokenize(s)) for s in sentences]
 
-        # Word frequencies
-        word_freqs = word_frequencies(wordlist, dict)
-        # print("Word frequencies: ")
-        # print(word_freqs)
+        id_doc = docs.index(doc)
+        id_author = authors.index(doc['author'])
+
+        # pos tagging
+        print(nltk.pos_tag([nltk.tokenize.word_tokenize(s) for s in sentences]))
+
+        # sentiment analysis
+        sentim_anal = TextBlob(text)
+        s_polarity = sentim_anal.sentiment.polarity + 1  # aby sme mali od 0 po 2 rozpatie, nie od -1 po  1
+        s_subjectivity = sentim_anal.sentiment.subjectivity
+
+        fourgrams = list(nltk.ngrams(tokenize(text), 4))  # rozoberiem text na 4-GRAMY
+        mostcommon_fourgrams = (nltk.FreqDist(w for w in fourgrams)).most_common(1)[0][-1]
+        # print("Most common fourgrams count in text: ")
+        # print(mostcommon_fourgrams)
+
+        trigrams = list(nltk.trigrams(tokenize(text)))  # rozoberiem text na 3-GRAMY
+        mostcommon_trigrams = (nltk.FreqDist(w for w in trigrams)).most_common(1)[0][-1]
+        # print("Most common trigrams count in text: ")
+        # print(mostcommon_trigrams)
+
+        bigrams = list(nltk.bigrams(tokenize(text)))  # rozoberiem text na BIGRAMY
+        mostcommon_bigram = (nltk.FreqDist(w for w in bigrams)).most_common(1)[0][-1]
+        # print("Most common bigram count in text: ")
+        # print(mostcommon_bigram)
+
+        mostcommon_word = (nltk.FreqDist(w for w in wordlist)).most_common(1)[0][-1]
+        # print("Most common word count in text: ")
+        # print(mostcommon_word)
 
         # Mean lenght of sentences
-        mean_sentence_len = scipy.mean(list_len_sentences)
-        mean_sentence_len = round(mean_sentence_len, ndigits=4)
+        mean_sentence_len = round(scipy.mean(list_len_sentences), ndigits=5)
         # print("Priemerna dlzka viet: ")
         # print(mean_sentence_len)
 
         # Number of stopwords in document
-        wordlist_wo_sw = remove_stopwords(wordlist)
-        stopwords_count = len(wordlist) - len(wordlist_wo_sw)
+        stopwords_count = len(wordlist) - len(remove_stopwords(wordlist))
         # print("Pocet stop slov: ")
         # print(stopwords_count)
 
@@ -451,17 +460,16 @@ def feature_extraction_1(docs, authors, dict):
         #print(" Pocet slov, ktore pouzil autor len raz: ")
         #print(num_hapaxes)
 
-        # MOMENTS
-       # m1 = moment(a=list_len_sentences, moment=1)  # always 0
+        # MOMENTS CENTRALISED
         m2 = moment(a=list_len_sentences, moment=2)  # variance je 2 mocnina std
         m3 = moment(a=list_len_sentences, moment=3)  # skewness - sikmost
         m4 = moment(a=list_len_sentences, moment=4)  # kurtosis - spicatost
-        m5 = moment(a=list_len_sentences, moment=5)  # -
-        m6 = moment(a=list_len_sentences, moment=6)  # -
-        m7 = moment(a=list_len_sentences, moment=7)  # -
-        m8 = moment(a=list_len_sentences, moment=8)  # -
-        m9 = moment(a=list_len_sentences, moment=9)  # -
-        m10 = moment(a=list_len_sentences, moment=10)  # -
+        # m5 = moment(a=list_len_sentences, moment=5)  # -
+        # m6 = moment(a=list_len_sentences, moment=6)  # -
+        # m7 = moment(a=list_len_sentences, moment=7)  # -
+        # m8 = moment(a=list_len_sentences, moment=8)  # -
+        # m9 = moment(a=list_len_sentences, moment=9)  # -
+        # m10 = moment(a=list_len_sentences, moment=10)  # -
 
         # lenght of words in text
         list_len_words = []
@@ -473,14 +481,28 @@ def feature_extraction_1(docs, authors, dict):
         mw3 = moment(a=list_len_words, moment=3)  # skewness - sikmost
         mw4 = moment(a=list_len_words, moment=4)  # kurtosis - spicatost
         mw5 = moment(a=list_len_words, moment=5)  # -
-        mw6 = moment(a=list_len_words, moment=6)  # -
-        mw7 = moment(a=list_len_words, moment=7)  # -
-        mw8 = moment(a=list_len_words, moment=8)  # -
-        mw9 = moment(a=list_len_words, moment=9)  # -
-        mw10 = moment(a=list_len_words, moment=10)  # -
+        # mw6 = moment(a=list_len_words, moment=6)  # -
+        # mw7 = moment(a=list_len_words, moment=7)  # -
+        # mw8 = moment(a=list_len_words, moment=8)  # -
+        # mw9 = moment(a=list_len_words, moment=9)  # -
+        # mw10 = moment(a=list_len_words, moment=10)  # -
+
+
+        #  ID dokumentu
+        fv.append(id_doc)
+
+        #  author dokumentu
+        fv.append(id_author)
 
         # FV dokumentu
-        fv.extend(word_freqs)
+        fv.append(s_subjectivity)
+        fv.append(s_polarity)
+
+        fv.append(mostcommon_word)
+        fv.append(mostcommon_bigram)
+        fv.append(mostcommon_trigrams)
+        fv.append(mostcommon_fourgrams)
+
         fv.append(mean_sentence_len)
         fv.append(stopwords_count)
         fv.append(wordlist_len)
@@ -491,26 +513,22 @@ def feature_extraction_1(docs, authors, dict):
         fv.append(m2)
         fv.append(m3)
         fv.append(m4)
-        fv.append(m5)
-        fv.append(m6)
-        fv.append(m7)
-        fv.append(m8)
-        fv.append(m9)
-        fv.append(m10)
+        # fv.append(m5)
+        # fv.append(m6)
+        # fv.append(m7)
+        # fv.append(m8)
+        # fv.append(m9)
+        # fv.append(m10)
 
         fv.append(mw2)
         fv.append(mw3)
         fv.append(mw4)
         fv.append(mw5)
-        fv.append(mw6)
-        fv.append(mw7)
-        fv.append(mw8)
-        fv.append(mw9)
-        fv.append(mw10)
-
-        #  LV dokumentu
-        lv = authors.index(doc['author'])
-        fv.append(lv)
+        # fv.append(mw6)
+        # fv.append(mw7)
+        # fv.append(mw8)
+        # fv.append(mw9)
+        # fv.append(mw10)
 
         # FV + LV vsetkych dokumentov v liste
         fvs.append(fv)
@@ -518,244 +536,6 @@ def feature_extraction_1(docs, authors, dict):
     print("Feature extraction method 1: DONE !")
     return fvs   # all vectors (Feature Vectors + Labels) as list
 
-#######################################################################################
-##########  feature extraction method 2  #########################
-#######################################################################################
-def feature_extraction_2(docs, authors):
-    fvs = []
-    for doc in docs:
-        fv = []
-        text = doc['body']
-        sentences = nltk.tokenize.sent_tokenize(text)
-
-        # lenght of sentences in text
-        list_len_sentences = [len(nltk.tokenize.word_tokenize(s)) for s in sentences]
-
-        # Mean lenght of sentences
-        mean_sentence_len = scipy.mean(list_len_sentences)
-        mean_sentence_len = round(mean_sentence_len, ndigits=6)
-        # print("Priemerna dlzka viet: ")
-        # print(mean_sentence_len)
-
-        # Number of stopwords in document
-        wordlist = tokenize_doc(text)
-        wordlist_wo_sw = remove_stopwords(wordlist)
-        stopwords_count = len(wordlist) - len(wordlist_wo_sw)
-        # print("Pocet stop slov: ")
-        # print(stopwords_count)
-
-        # Number of all words in document
-        wordlist = tokenize_doc(text)
-        wordlist_len = len(wordlist)
-        # print("Pocet all slov: ")
-        # print(wordlist_len)
-
-        # Standard deviation
-        std = round(numpy.std(list_len_sentences), ndigits=6)
-        # print("Standard deviation: ")
-        # print(std)
-
-        # MOMENTS
-        # m1 = moment(a=list_len_sentences, moment=1)  # always 0
-        m2 = round(moment(a=list_len_sentences, moment=2), ndigits=6)  # variance je 2 mocnina std
-        m3 = round(moment(a=list_len_sentences, moment=3), ndigits=6) # skewness - sikmost
-        m4 = round(moment(a=list_len_sentences, moment=4), ndigits=6)  # kurtosis - spicatost
-        m5 = round(moment(a=list_len_sentences, moment=5), ndigits=6)  # -
-        m6 = round(moment(a=list_len_sentences, moment=6), ndigits=6)  # -
-        m7 = round(moment(a=list_len_sentences, moment=7), ndigits=6)  # -
-        m8 = round(moment(a=list_len_sentences, moment=8), ndigits=6)  # -
-        m9 = round(moment(a=list_len_sentences, moment=9), ndigits=6)  # -
-        m10 = round(moment(a=list_len_sentences, moment=10), ndigits=6)  # -
-
-        # lenght of words in text
-        list_len_words = []
-        for s in sentences:
-            for word in nltk.tokenize.word_tokenize(s):
-                list_len_words.append(len(list(word)))
-
-        mw2 = round(moment(a=list_len_words, moment=2), ndigits=6) # variance je 2 mocnina std
-        mw3 = round(moment(a=list_len_words, moment=3), ndigits=6)  # skewness - sikmost
-        mw4 = round(moment(a=list_len_words, moment=4), ndigits=6)  # kurtosis - spicatost
-        mw5 = round(moment(a=list_len_words, moment=5), ndigits=6)  # -
-        mw6 = round(moment(a=list_len_words, moment=6), ndigits=6)  # -
-        mw7 = round(moment(a=list_len_words, moment=7), ndigits=6)  # -
-        mw8 = round(moment(a=list_len_words, moment=8), ndigits=6)  # -
-        mw9 = round(moment(a=list_len_words, moment=9), ndigits=6)  # -
-        mw10 = round(moment(a=list_len_words, moment=10), ndigits=6)  # -
-
-        # Number of different words
-        vocab_richness = nltk.FreqDist(w for w in wordlist).B()
-        # print(" Vocabulary richness: ")
-        # print(vocab_richness)
-
-        # Number of different words
-        num_hapaxes = len(nltk.FreqDist(w for w in wordlist).hapaxes())
-        # print(" Pocet slov, ktore pouzil autor len raz: ")
-        # print(num_hapaxes)
-
-        # FV dokumentu
-        fv.append(mean_sentence_len)
-        fv.append(stopwords_count)
-        fv.append(wordlist_len)
-        fv.append(std)
-        fv.append(vocab_richness)
-        fv.append(num_hapaxes)
-
-        fv.append(m2)
-        fv.append(m3)
-        fv.append(m4)
-        fv.append(m5)
-        fv.append(m6)
-        fv.append(m7)
-        fv.append(m8)
-        fv.append(m9)
-        fv.append(m10)
-
-        fv.append(mw2)
-        fv.append(mw3)
-        fv.append(mw4)
-        fv.append(mw5)
-        fv.append(mw6)
-        fv.append(mw7)
-        fv.append(mw8)
-        fv.append(mw9)
-        fv.append(mw10)
-
-        #  LV dokumentu
-        lv = authors.index(doc['author'])
-        fv.append(lv)
-
-        # FV + LV vsetkych dokumentov v liste
-        fvs.append(fv)
-
-    print("Feature extraction method 2: DONE !")
-    return fvs   # all vectors (Feature Vectors + Labels) as list
-
-###################################################################################
-##########  feature extraction method 3   MOMENTS           #########################
-###################################################################################
-def feature_extraction_3(docs, authors):
-    fvs = []
-    for doc in docs:
-        fv = []
-        text = doc['body']
-        sentences = nltk.tokenize.sent_tokenize(text)
-
-        # lenght of words in text
-        list_len_words = []
-        for s in sentences:
-            for word in nltk.tokenize.word_tokenize(s):
-                list_len_words.append(len(word))
-
-        # lenght of sentences in text
-        list_len_sentences = [len(nltk.tokenize.word_tokenize(s)) for s in sentences]
-
-        # m1 = moment(a=list_len_sentences, moment=1)  # always 0
-        m2 = moment(a=list_len_sentences, moment=2)  # variance je 2 mocnina std
-        m3 = moment(a=list_len_sentences, moment=3)  # skewness - sikmost
-        m4 = moment(a=list_len_sentences, moment=4)  # kurtosis - spicatost
-        m5 = moment(a=list_len_sentences, moment=5)  #  -
-        m6 = moment(a=list_len_sentences, moment=6)  #  -
-        m7 = moment(a=list_len_sentences, moment=7)  #  -
-        m8 = moment(a=list_len_sentences, moment=8)  #  -
-        m9 = moment(a=list_len_sentences, moment=9)  #  -
-        m10 = moment(a=list_len_sentences, moment=10)  #  -
-
-        mw2 = moment(a=list_len_words, moment=2)  # variance je 2 mocnina std
-        mw3 = moment(a=list_len_words, moment=3)  # skewness - sikmost
-        mw4 = moment(a=list_len_words, moment=4)  # kurtosis - spicatost
-        mw5 = moment(a=list_len_words, moment=5)  #  -
-        mw6 = moment(a=list_len_words, moment=6)  #  -
-        mw7 = moment(a=list_len_words, moment=7)  #  -
-        mw8 = moment(a=list_len_words, moment=8)  #  -
-        mw9 = moment(a=list_len_words, moment=9)  #  -
-        mw10 = moment(a=list_len_words, moment=10)  #  -
-
-        # FV dokumentu
-        fv.append(m2)
-        fv.append(m3)
-        fv.append(m4)
-        fv.append(m5)
-        fv.append(m6)
-        fv.append(m7)
-        fv.append(m8)
-        fv.append(m9)
-        fv.append(m10)
-
-        fv.append(mw2)
-        fv.append(mw3)
-        fv.append(mw4)
-        fv.append(mw5)
-        fv.append(mw6)
-        fv.append(mw7)
-        fv.append(mw8)
-        fv.append(mw9)
-        fv.append(mw10)
-
-        #  LV dokumentu
-        lv = authors.index(doc['author'])
-        fv.append(lv)
-
-        # FV + LV vsetkych dokumentov v liste
-        fvs.append(fv)
-
-    print("Feature extraction method 3: DONE !")
-    return fvs   # all vectors (Feature Vectors + Labels) as list
-
-#######################################################################################
-##########  feature extraction method 4 - Word Freqs  #########################
-#######################################################################################
-def feature_extraction_4(docs, authors, dict):
-    fvs = []
-    for doc in docs:
-        fv = []
-        text = doc['body']
-        wordlist = tokenize_doc(text)
-        wordlist = remove_stopwords(wordlist)
-
-        # Word frequencies
-        word_freqs = word_frequencies(wordlist, dict)
-        # print("Word frequencies: ")
-        # print(word_freqs)
-
-        #  FV dokumentu
-        fv.extend(word_freqs)
-
-        #  LV dokumentu
-        lv = authors.index(doc['author'])
-        fv.append(lv)
-
-        # FV + LV vsetkych dokumentov v liste
-        fvs.append(fv)
-
-    print("Feature extraction method 4: DONE !")
-    return fvs   # all vectors (Feature Vectors + Labels) as list
-
-#######################################################################################
-##########  feature extraction method   5   ##########################################
-#######################################################################################
-
-def feature_extraction_5(docs, authors, colloc_dict):
-    fvs = []
-    for doc in docs:
-        fv = []
-        text = doc['body']
-
-        # counts of OFTEN BIGRAMS in text, return the same dictionary but with counts on place of index of bigram in dictionary
-        bigrams = often_bigrams_count(text, colloc_dict)
-
-        # vytvarame FV
-        fv.extend(bigrams)
-
-        #  vytvarame LV
-        lv = authors.index(doc['author'])
-        fv.append(lv)
-
-        # FV + LV vsetkych dokumentov v liste
-        fvs.append(fv)
-
-    print("Feature extraction method: DONE !")
-    return fvs   # all vectors (Feature Vectors + Labels) as list
 
 #######################################################################################
 ##########  feature extraction method   6 - HISTOGRAM DLZKY VIET    ###################
@@ -788,23 +568,14 @@ def feature_extraction_6(docs, authors):
 ##########  generate .csv with Input vector / Feature Vector  #########################
 #######################################################################################
 
-def create_cvs(dataset, authors, filename='train_data_fv.csv'):
-    categories = authors
-
-    try:
-        shutil.rmtree(f'/{filename}', ignore_errors=False)
-    except FileNotFoundError:
-        pass
-
+def create_cvs(dataset, filename='train_data_fv.csv'):
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
-
        # HLAVICKA
-        writer.writerow([len(dataset), len(dataset[0]) - 1, len(categories), categories])# pocet riadkov (1 riadok = 1 in/out vector = 1 dokument),
-                                                                                         # pocet vlastnosti = dlzka 1 FV (-1 co je LABEL),
-                                                                                         # vypisane vsetky kategorie
+       #  writer.writerow(['document_id', 'author_id', '1-gram', '2-gram', '3-gram', '4-gram', 'mean_len_sentences', '# stopwords', '# words', 'std_len_sentences', 'vocab_richness', '# hapaxes', '2-moment_ls', '3-moment_ls', '4-moment_ls', '5-moment_ls', '6-moment_ls', '7-moment_ls', '8-moment_ls', '9-moment_ls', '10-moment_ls', '2-moment_lw', '3-moment_lw', '4-moment_lw', '5-moment_lw', '6-moment_lw', '7-moment_lw', '8-moment_lw', '9-moment_lw', '10-moment_lw',])#
+        writer.writerow(['document_id', 'author_id', 'sentim_subjectivity', 'sentim_polarity', '1-gram', '2-gram', '3-gram', '4-gram', 'mean_len_sentences', '# stopwords', '# words', 'std_len_sentences', 'vocab_richness', '# hapaxes', '2-moment_ls', '3-moment_ls', '4-moment_ls', '2-moment_lw', '3-moment_lw', '4-moment_lw', '5-moment_lw',])#
         # DATA
-        writer.writerows(dataset)     # v riadkoch su Feature data + posledny stlpec v riadku je label
+        writer.writerows(dataset)
 
     print(f"{filename} file was created.\n")
 
@@ -814,66 +585,74 @@ def create_cvs(dataset, authors, filename='train_data_fv.csv'):
 ###############################################################################
 
 def main():
-    # The training corpus consists of 2,500 texts (50 per author)
-    # and the test corpus includes other 2,500 texts (50 per author)
-    # non-overlapping with the training texts.
-
     print('\n Generating document objects...')
     train = parse_documents('train')
-    test = parse_documents('test')
-
     print('\n Generating list of authors...')
     train_authors = create_db_authors(train)
-    test_authors = create_db_authors(test)
-
-    assert len(train_authors) == len(test_authors), "PROBLEM: pocet test a train autorov sa musi rovnat."
 
 ##################################################
 ###       GENERATE DICTIONARIES                ###
 ##################################################
-
-    print("\n Generating frequent words dictionary...")
-    # diction = create_dictionary(train, test, keep_percent=70)
-
-    print("\n Generating collocation dictionary...")
-    colloc_dict = coll_dict(train+test, num=1779, window_size=2)
+    #
+    # print("\n Generating frequent words dictionary...")
+    # diction = create_dictionary(train, keep_percent=70)
+    #
+    # print("\n Generating collocation dictionary...")
+    # colloc_dict = coll_dict(train, num=1779, window_size=2)
 
 ##############################################
 ###       GENERATE DATASETS                ###
 ##############################################
 
-    filename_train = 'train_data_fv_bigrams_70.csv'  # MUST BE CHANGED !
-    filename_test = 'test_data_fv_bigrams_70.csv'  # MUST BE CHANGED !
+    filename = 'data3.csv'
 
-
-    ### TRAIN FV ###
     print('\nGenerating train dataset. This may take some time...')
-    # trainset = feature_extraction_1(train, train_authors, diction)  # all in one (2,3,4)
-    # trainset = feature_extraction_2(train, train_authors)   # priemerna dlzka viet + pocet stopslov + pocet all slov + std dlzky viet + 10 MOMENTOV dlzok viet + 10 MOMENTOV dlzok slov + hapaxes + richness
-    # trainset = feature_extraction_3(train, train_authors)   # 10 MOMENTOV dlzok viet + 10 MOMENTOV dlzok slov
-    # trainset = feature_extraction_4(train, train_authors, diction)  # only the most frequent single words- no stop words, 70%/1779, 75%/2413,
-    trainset = feature_extraction_5(train, train_authors, colloc_dict)   # the most frequent bigrams - no stop words
-    # trainset = feature_extraction_6(train, train_authors)   # histogram dlzok viet v hraniciach
+    trainset = feature_extraction_1(train, train_authors)  # all in one
 
-    ### TEST FV ###
-    print('\nGenerating test dataset. This may take some time...')
-    # testset = feature_extraction_1(test, test_authors, diction)
-    # testset = feature_extraction_2(test, test_authors)
-    # testset = feature_extraction_3(test, test_authors)
-    # testset = feature_extraction_4(test, test_authors, diction)
-    testset = feature_extraction_5(test, test_authors, colloc_dict)
-    # testset = feature_extraction_6(test, test_authors)
-
-    assert len(testset[0]) == len(trainset[0]), "PROBLÉM: dĺžka testovacieho a trénovacieho FV sa nerovná."
+    assert False, ""
+    # print('Generating train CSV. This may take some time...')
+    # create_cvs(trainset, filename=filename)
 
 
+    df = read_csv(filename, sep=',')
 
-    print('Generating train CSV. This may take some time...')
-    create_cvs(trainset, train_authors, filename=filename_train)
 
-    print('Generating test CSV. This may take some time...')
-    create_cvs(testset, test_authors, filename=filename_test)
+    corr = df.corr()
+    mask = np.zeros_like(corr, dtype=np.bool)
+    mask[np.triu_indices_from(mask)] = True
+    f, ax = plt.subplots(figsize=(11, 9))
+    cmap = sns.diverging_palette(220, 10, as_cmap=True)
+    p = sns.heatmap(corr, mask=mask, cmap=cmap, vmax=1, center=0,
+                square=True, linewidths=.5, cbar_kws={"shrink": .5})
+
+    plt.show()
+
+    # g = sns.pairplot(df[['author_id', 'sentim_subjectivity', 'sentim_plurality', 'std_len_sentences', 'vocab_richness','2-moment_ls','3-moment_ls','2-moment_lw', '3-moment_lw',]], hue='author_id', palette='husl', markers='d', size=2.0, plot_kws=
+    # {"s": 40,
+    #  "alpha": 1.0,
+    #  'lw': 0.5,
+    #  'edgecolor': 'k'})
+    # # plt.legend(loc='upper center', bbox_to_anchor=(1.10, 1.0), ncol=1) #vertical legend
+    # # plt.legend(loc='lower center', bbox_to_anchor=(0.0, -0.15), ncol=3) #horizontal legend bottom
+    # # plt.legend(loc='upper left', bbox_to_anchor=(0.0, 1.15), ncol=3) #horizontal legend top
+    # g.savefig('Test5.png', bbox_inches='tight')
+
+
+    # sns.pairplot(df[['author_id', '1-gram', '2-gram', '3-gram', '# stopwords', '# words']],  size=1, hue='author_id')
+    # print(df[:3])
+    # sns.pairplot(df[['document_id', 'author_id', '1-gram', '2-gram', '3-gram', '4-gram', 'mean_len_sentences',
+    #                  '# stopwords', '# words', 'std_len_sentences', 'vocab_richness', '# hapaxes', '2-moment_ls',
+    #                  '3-moment_ls', '4-moment_ls', '2-moment_lw', '3-moment_lw', '4-moment_lw', '5-moment_lw',]], size=1,  hue='author_id')
+    # plt.show()
+
 
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
