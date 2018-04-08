@@ -289,7 +289,7 @@ def remove_stopwords(wordlist):
 #####################################################################################################
 
 def create_dictionary(traindocs, testdocs, keep_percent):
-    # create dict from all words in all docs and return 80% of most frequent
+    # create dict from all words in all docs and return 70% of most frequent
     docs = []
     docs.extend(traindocs)
     docs.extend(testdocs)
@@ -297,7 +297,7 @@ def create_dictionary(traindocs, testdocs, keep_percent):
     # Create wordlist from docs
     wordlist = []
     for d in range(len(docs)):
-        wordlist.extend(tokenize_doc(docs[d]['body']))
+        wordlist.extend(tokenize_doc(docs[d]['body']))  # tokenize and gorup numbers, prices, webpages under keywords
     print("Slovnik wordlist 1/2 DONE!")
 
     # Remove stop words
@@ -305,7 +305,7 @@ def create_dictionary(traindocs, testdocs, keep_percent):
 
     # Create word frequencies
     wordcounts = nltk.FreqDist(w for w in wordlist)
-    wanted_count = round((wordcounts.N()/100) * keep_percent)  # get X percent of frequent distribution
+    wanted_count = round((wordcounts.N()/100) * keep_percent)  # get X percent of frequency distribution
     summ = 0
     count = 0
     for i in list(wordcounts.most_common()): # zoradene podla od najcastejsie vyskyt. sa slov
@@ -313,9 +313,10 @@ def create_dictionary(traindocs, testdocs, keep_percent):
         count += 1    # pocitam stlpce, cez ktore prechadzam
         if summ >= wanted_count:  # dosiahnem chceny pocet slov (keep_percent), scitavanim slov postupne po sltpcoch
             break
-    # print(count)
-    # print(summ)
-    #wordcounts.plot(count, title='FreqDist Histogram', cumulative=False)
+
+    print(count)  # pocet roznych slov (pocet stlpcov v histograme), ktore su v ramci X percent najviac sa vyskytujucich sa slov
+    print(summ)  # pocetnosti vsetkych slov spolu
+    wordcounts.plot(count, title='FreqDist Histogram', cumulative=False) # 100
 
     print("Slovnik 2/2 DONE!")
     return wordcounts.most_common(count)
@@ -374,7 +375,7 @@ def coll_dict(docs, num, window_size):
         all_text += doc['body']
     text = nltk.Text(tkn for tkn in tokenize(all_text))
 
-    # vstavanu metodu collocations som upravil riadkom ! return colloc_strings, po preinstalovani kniznice musis UPRAVIT
+    # TODO vstavanu metodu collocations som upravil riadkom ! return colloc_strings !, po preinstalovani kniznice musis UPRAVIT
     # Print collocations derived from the text, ignoring stopwords.
     coll.extend(text.collocations(num=num, window_size=window_size))
     assert len(coll) == num, "Pocet vytvorenych collocations sa nerovna ziadanemu, niekde je chyba."
@@ -833,7 +834,7 @@ def main():
 ##################################################
 
     print("\n Generating frequent words dictionary...")
-    # diction = create_dictionary(train, test, keep_percent=70)
+    diction = create_dictionary(train, test, keep_percent=70)
 
     print("\n Generating collocation dictionary...")
     colloc_dict = coll_dict(train+test, num=1779, window_size=2)
@@ -848,10 +849,10 @@ def main():
 
     ### TRAIN FV ###
     print('\nGenerating train dataset. This may take some time...')
-    # trainset = feature_extraction_1(train, train_authors, diction)  # all in one (2,3,4)
+    trainset = feature_extraction_1(train, train_authors, diction)  # all in one (2,3,4)
     # trainset = feature_extraction_2(train, train_authors)   # priemerna dlzka viet + pocet stopslov + pocet all slov + std dlzky viet + 10 MOMENTOV dlzok viet + 10 MOMENTOV dlzok slov + hapaxes + richness
     # trainset = feature_extraction_3(train, train_authors)   # 10 MOMENTOV dlzok viet + 10 MOMENTOV dlzok slov
-    # trainset = feature_extraction_4(train, train_authors, diction)  # only the most frequent single words- no stop words, 70%/1779, 75%/2413,
+    trainset = feature_extraction_4(train, train_authors, diction)  # only the most frequent single words- no stop words, 70%/1779, 75%/2413,
     trainset = feature_extraction_5(train, train_authors, colloc_dict)   # the most frequent bigrams - no stop words
     # trainset = feature_extraction_6(train, train_authors)   # histogram dlzok viet v hraniciach
 

@@ -18,8 +18,9 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 from pandas import read_csv, plotting as pl
-
-# nltk.download('averaged_perceptron_tagger')
+from collections import Counter
+nltk.download('universal_tagset')
+nltk.download('averaged_perceptron_tagger')
 #stopWords = set(stopwords.words('english'))
 
 
@@ -403,7 +404,70 @@ def feature_extraction_1(docs, authors):
         id_author = authors.index(doc['author'])
 
         # pos tagging
-        print(nltk.pos_tag([nltk.tokenize.word_tokenize(s) for s in sentences]))
+        post = nltk.pos_tag(nltk.tokenize.word_tokenize(text), tagset='universal')
+        c = Counter([j for i, j in post])
+        noun = 0
+        verb = 0
+        pron = 0
+        num = 0
+        prt = 0
+        adj = 0
+        adp = 0
+        adv = 0
+        det = 0
+        conj = 0
+        oth = 0
+        sym = 0
+        for (k, v) in c.items():
+            if k == 'NOUN':
+                noun = v
+            elif k == 'VERB':
+                verb = v
+            elif k == 'PRON': # pronoun
+                pron = v
+            elif k == 'NUM':  # numeral
+                num = v
+            elif k == 'PRT':  # particle
+                prt = v
+            elif k == 'ADJ':  # adjective
+                adj = v
+            elif k == 'ADP':  # adposition
+                adp = v
+            elif k == 'ADV':  # adverb
+                adv = v
+            elif k == 'DET':  # determiner, article most, a, the
+                det = v
+            elif k == 'CONJ':  # conjunction: and or but if
+                conj = v
+            elif k == '.':  # punct.marks
+                sym = v
+                # print("SYMBOL")
+                # print(v)
+                # print(k)
+
+            else:
+                oth = v  # X other
+                # print("other")
+                # print(v)
+                # print(k)
+
+            # ADJ: adjective
+            # ADP: adposition
+            # ADV: adverb
+            # AUX: auxiliary
+            # CONJ: conjunction
+            # DET: determiner
+            # INTJ: interjection
+            # NOUN: noun
+            # NUM: numeral
+            # PRT: particle
+            # PRON: pronoun
+            # PROPN: proper noun
+            # PUNCT: punctuation
+            # SCONJ: subordinating conjunction
+            # SYM: symbol
+            # VERB: verb
+            # X: other
 
         # sentiment analysis
         sentim_anal = TextBlob(text)
@@ -452,6 +516,7 @@ def feature_extraction_1(docs, authors):
 
         # Number of different words
         vocab_richness = nltk.FreqDist(w for w in wordlist).B()
+        vocab_richness = vocab_richness/wordlist_len
         # print(" Vocabulary richness: ")
         # print(vocab_richness)
 
@@ -464,11 +529,11 @@ def feature_extraction_1(docs, authors):
         m2 = moment(a=list_len_sentences, moment=2)  # variance je 2 mocnina std
         m3 = moment(a=list_len_sentences, moment=3)  # skewness - sikmost
         m4 = moment(a=list_len_sentences, moment=4)  # kurtosis - spicatost
-        # m5 = moment(a=list_len_sentences, moment=5)  # -
-        # m6 = moment(a=list_len_sentences, moment=6)  # -
-        # m7 = moment(a=list_len_sentences, moment=7)  # -
-        # m8 = moment(a=list_len_sentences, moment=8)  # -
-        # m9 = moment(a=list_len_sentences, moment=9)  # -
+        m5 = moment(a=list_len_sentences, moment=5)  # -
+        m6 = moment(a=list_len_sentences, moment=6)  # -
+        m7 = moment(a=list_len_sentences, moment=7)  # -
+        m8 = moment(a=list_len_sentences, moment=8)  # -
+        m9 = moment(a=list_len_sentences, moment=9)  # -
         # m10 = moment(a=list_len_sentences, moment=10)  # -
 
         # lenght of words in text
@@ -481,10 +546,10 @@ def feature_extraction_1(docs, authors):
         mw3 = moment(a=list_len_words, moment=3)  # skewness - sikmost
         mw4 = moment(a=list_len_words, moment=4)  # kurtosis - spicatost
         mw5 = moment(a=list_len_words, moment=5)  # -
-        # mw6 = moment(a=list_len_words, moment=6)  # -
-        # mw7 = moment(a=list_len_words, moment=7)  # -
-        # mw8 = moment(a=list_len_words, moment=8)  # -
-        # mw9 = moment(a=list_len_words, moment=9)  # -
+        mw6 = moment(a=list_len_words, moment=6)  # -
+        mw7 = moment(a=list_len_words, moment=7)  # -
+        mw8 = moment(a=list_len_words, moment=8)  # -
+        mw9 = moment(a=list_len_words, moment=9)  # -
         # mw10 = moment(a=list_len_words, moment=10)  # -
 
 
@@ -503,6 +568,19 @@ def feature_extraction_1(docs, authors):
         fv.append(mostcommon_trigrams)
         fv.append(mostcommon_fourgrams)
 
+        fv.append(noun)
+        fv.append(verb)
+        fv.append(pron)
+        fv.append(num)
+        fv.append(prt)
+        fv.append(adj)
+        fv.append(adp)
+        fv.append(adv)
+        fv.append(det)
+        fv.append(conj)
+        fv.append(sym)
+        fv.append(oth)
+
         fv.append(mean_sentence_len)
         fv.append(stopwords_count)
         fv.append(wordlist_len)
@@ -513,21 +591,21 @@ def feature_extraction_1(docs, authors):
         fv.append(m2)
         fv.append(m3)
         fv.append(m4)
-        # fv.append(m5)
-        # fv.append(m6)
-        # fv.append(m7)
-        # fv.append(m8)
-        # fv.append(m9)
+        fv.append(m5)
+        fv.append(m6)
+        fv.append(m7)
+        fv.append(m8)
+        fv.append(m9)
         # fv.append(m10)
 
         fv.append(mw2)
         fv.append(mw3)
         fv.append(mw4)
         fv.append(mw5)
-        # fv.append(mw6)
-        # fv.append(mw7)
-        # fv.append(mw8)
-        # fv.append(mw9)
+        fv.append(mw6)
+        fv.append(mw7)
+        fv.append(mw8)
+        fv.append(mw9)
         # fv.append(mw10)
 
         # FV + LV vsetkych dokumentov v liste
@@ -573,7 +651,7 @@ def create_cvs(dataset, filename='train_data_fv.csv'):
         writer = csv.writer(f)
        # HLAVICKA
        #  writer.writerow(['document_id', 'author_id', '1-gram', '2-gram', '3-gram', '4-gram', 'mean_len_sentences', '# stopwords', '# words', 'std_len_sentences', 'vocab_richness', '# hapaxes', '2-moment_ls', '3-moment_ls', '4-moment_ls', '5-moment_ls', '6-moment_ls', '7-moment_ls', '8-moment_ls', '9-moment_ls', '10-moment_ls', '2-moment_lw', '3-moment_lw', '4-moment_lw', '5-moment_lw', '6-moment_lw', '7-moment_lw', '8-moment_lw', '9-moment_lw', '10-moment_lw',])#
-        writer.writerow(['document_id', 'author_id', 'sentim_subjectivity', 'sentim_polarity', '1-gram', '2-gram', '3-gram', '4-gram', 'mean_len_sentences', '# stopwords', '# words', 'std_len_sentences', 'vocab_richness', '# hapaxes', '2-moment_ls', '3-moment_ls', '4-moment_ls', '2-moment_lw', '3-moment_lw', '4-moment_lw', '5-moment_lw',])#
+        writer.writerow(['document_id', 'author_id', 'sentim_subjectivity', 'sentim_polarity', 'most common unigram', 'bigram', '3-gram', '4-gram', '# noun', '# verb', '# pronoun', '# numeral', '# particle', '# adjective', '# adposition', '# adverb', '# auxiliary', '# determiner', '# conjuction', '# other POS', 'mean_len_sentences', '# stopwords', '# words', 'std_len_sentences', 'vocab_richness', '# hapaxes', '2-moment_ls', '3-moment_ls', '4-moment_ls', '5-moment_ls', '6-moment_ls', '7-moment_ls', '8-moment_ls', '9-moment_ls', '2-moment_lw', '3-moment_lw', '4-moment_lw', '5-moment_lw', '6-moment_lw', '7-moment_lw', '8-moment_lw', '9-moment_lw',])#
         # DATA
         writer.writerows(dataset)
 
@@ -593,10 +671,10 @@ def main():
 ##################################################
 ###       GENERATE DICTIONARIES                ###
 ##################################################
-    #
+
     # print("\n Generating frequent words dictionary...")
     # diction = create_dictionary(train, keep_percent=70)
-    #
+
     # print("\n Generating collocation dictionary...")
     # colloc_dict = coll_dict(train, num=1779, window_size=2)
 
@@ -604,14 +682,14 @@ def main():
 ###       GENERATE DATASETS                ###
 ##############################################
 
-    filename = 'data3.csv'
+    filename = 'data7.csv'
 
     print('\nGenerating train dataset. This may take some time...')
     trainset = feature_extraction_1(train, train_authors)  # all in one
 
     assert False, ""
-    # print('Generating train CSV. This may take some time...')
-    # create_cvs(trainset, filename=filename)
+    print('Generating train CSV. This may take some time...')
+    create_cvs(trainset, filename=filename)
 
 
     df = read_csv(filename, sep=',')
@@ -622,10 +700,11 @@ def main():
     mask[np.triu_indices_from(mask)] = True
     f, ax = plt.subplots(figsize=(11, 9))
     cmap = sns.diverging_palette(220, 10, as_cmap=True)
+    plt.figure(figsize=(15, 15))
     p = sns.heatmap(corr, mask=mask, cmap=cmap, vmax=1, center=0,
                 square=True, linewidths=.5, cbar_kws={"shrink": .5})
 
-    plt.show()
+    plt.savefig('heatmapALL5.png')
 
     # g = sns.pairplot(df[['author_id', 'sentim_subjectivity', 'sentim_plurality', 'std_len_sentences', 'vocab_richness','2-moment_ls','3-moment_ls','2-moment_lw', '3-moment_lw',]], hue='author_id', palette='husl', markers='d', size=2.0, plot_kws=
     # {"s": 40,
